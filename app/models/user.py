@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 
 from app.database import Base
 
@@ -12,3 +13,15 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, server_default=func.now())
+
+    donor_profile = relationship(
+        "DonorProfile",
+        back_populates="user",
+        uselist=False
+    )
+
+    requester_profile = relationship(
+    "RequesterProfile",
+    back_populates="user",
+    uselist=False
+    )

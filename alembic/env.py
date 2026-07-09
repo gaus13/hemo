@@ -4,8 +4,15 @@ from sqlalchemy import pool
 from alembic import context
 # below two imports are that we just added to this file
 from app.database import Base
-from app.models.user import User
 from app.config import settings
+
+# below are the db table imports for alembic migration
+from app.models.user import User
+from app.models.donor import DonorProfile
+from app.models.requester import RequesterProfile
+from app.models.bloodrequest import BloodRequest
+from app.models.donorvolunteer import DonorVolunteer
+
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
