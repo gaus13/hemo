@@ -33,3 +33,8 @@ class BloodRequest(Base):
     "DonorVolunteer",
     back_populates="request"
     )
+
+    donation_history = relationship(
+    "DonationHistory",
+    back_populates="blood_request"
+)

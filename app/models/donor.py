@@ -1,4 +1,4 @@
-from sqlalchemy import DateTime, String, Boolean, Integer, Column, ForeignKey, Date, Enum
+from sqlalchemy import DateTime, String, Boolean, Integer, Column, ForeignKey, Date, Enum, Float
 from app.database import Base
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -21,7 +21,12 @@ class DonorProfile(Base):
     weight = Column(Integer, nullable=False)
     city = Column(String, nullable=False)
     state = Column(String, nullable=False)
-    last_donation_date = Column(Date, nullable=False)
+
+#   Why nullable? Because during registration we don't know the location yet.
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+
+#  removed last donation date from donor and added donation history table
     is_available = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
@@ -32,3 +37,9 @@ class DonorProfile(Base):
     "DonorVolunteer",
     back_populates="donor"
     )
+
+    donation_history = relationship(
+    "DonationHistory",
+    back_populates="donor",
+    cascade="all, delete-orphan"
+)
