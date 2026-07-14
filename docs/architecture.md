@@ -58,3 +58,40 @@ Database
     │
     ▼
 Current User
+
+@@@@@  My vision for Hemo (the version I want us to build) @@@@
+
+                    HEMO
+                       │
+        ┌──────────────┴──────────────┐
+        │                             │
+ Authentication                Authorization
+        │                             │
+        └──────────────┬──────────────┘
+                       │
+                 User Profiles
+                       │
+         ┌─────────────┴─────────────┐
+         │                           │
+     Donor Profile            Requester Profile
+         │                           │
+         └─────────────┬─────────────┘
+                       │
+                Blood Requests
+                       │
+              Matching Algorithm
+                       │
+         Distance + Blood Match +
+         Eligibility + Reliability
+                       │
+               Volunteer Workflow
+                       │
+              Donation Verification
+                       │
+               Donation History
+                       │
+               Reliability Score
+                       │
+              Notifications (Email/SMS)
+                       │
+          Analytics + Admin Dashboard

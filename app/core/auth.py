@@ -25,3 +25,22 @@ def create_access_token(data: dict):
 
 
 def decode_token(token: str):
+    # use the decode function to decode payload
+    try:
+        payload = jwt.decode(
+            token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM]
+        )
+
+        # from decoded str get the user id that is called sub here
+        user_id = payload.get("sub")
+
+        if user_id is None:
+            return None
+        
+        # int mein conversion bcs jwt store things as json so default is string
+        return int(user_id)
+    
+    except JWTError:
+        return None
