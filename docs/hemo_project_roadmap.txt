@@ -1,0 +1,130 @@
+================================================================================
+HEMO PROJECT TRACKER & ROADMAP REFERENCE
+================================================================================
+
+[PHASE STATUS SUMMARY]
+Phase 1  - Project Foundation:   ████████████████████ 100% COMPLETE
+Phase 2  - Database Design:     ███████████████████░  95% COMPLETE
+Phase 3  - Authentication:      ██████████████░░░░░░  70% IN PROGRESS
+Phase 4  - User Management:     ░░░░░░░░░░░░░░░░░░░░   0% PLANNED
+Phase 5  - Blood Requests:      ░░░░░░░░░░░░░░░░░░░░   0% PLANNED
+Phase 6  - Donor Discovery:     ░░░░░░░░░░░░░░░░░░░░   0% PLANNED
+Phase 7  - Volunteer System:    ░░░░░░░░░░░░░░░░░░░░   0% PLANNED
+Phase 8  - Donation History:    ░░░░░░░░░░░░░░░░░░░░   0% PLANNED
+Phase 9  - Eligibility Engine:  ░░░░░░░░░░░░░░░░░░░░   0% PLANNED
+Phase 10 - Matching Engine:     ░░░░░░░░░░░░░░░░░░░░   0% PLANNED
+Phase 11 - Authorization:       ░░░░░░░░░░░░░░░░░░░░   0% PLANNED
+Phase 12 - Validation:          ░░░░░░░░░░░░░░░░░░░░   0% PLANNED
+Phase 13 - Testing:             ░░░░░░░░░░░░░░░░░░░░   0% PLANNED
+Phase 14 - Documentation:       ░░░░░░░░░░░░░░░░░░░░   0% PLANNED
+Phase 15 - Docker:              ░░░░░░░░░░░░░░░░░░░░   0% PLANNED
+Phase 16 - Production/DevOps:   ░░░░░░░░░░░░░░░░░░░░   0% PLANNED
+
+================================================================================
+DETAILED PHASE BREAKDOWN
+================================================================================
+
+✅ PHASE 1 — PROJECT FOUNDATION (100% Complete)
+   [x] Folder structure
+   [x] Virtual environment
+   [x] Dependencies
+   [x] FastAPI setup
+   [x] Config (.env)
+   [x] Settings class
+   [x] Database connection
+   [x] SQLAlchemy Base
+   [x] Health endpoint
+   [x] Swagger working
+   * Core Skills Gained: FastAPI, Pydantic Settings, SQLAlchemy Engine, Session,
+                         Dependency Injection basics
+
+✅ PHASE 2 — DATABASE DESIGN (95% Complete)
+   [x] User model
+   [x] DonorProfile
+   [x] RequesterProfile
+   [x] BloodRequest
+   [x] DonorVolunteer
+   [x] DonationHistory
+   [x] Relationships
+   [x] Enums
+   [x] Alembic
+   [x] PostgreSQL migrations
+   [ ] NEED TO DO: One final migration after DonationHistory changes.
+
+🟡 PHASE 3 — AUTHENTICATION (70% Complete - CURRENT FOCUS)
+   [x] RegisterRequest schema
+   [x] LoginRequest schema
+   [x] TokenResponse
+   [x] Password hashing
+   [x] Verify password
+   [x] JWT creation
+   [x] JWT decoding
+   [x] get_current_user()
+   [ ] STILL LEFT (To Finish Next):
+       [x] POST /register
+       [x] POST /login
+       [x] Test JWT
+       [x] Protect endpoints
+
+⬜ PHASE 4 — USER MANAGEMENT (Planned)
+   [ ] POST /donor/profile     (Build donor profile after account creation)
+   [ ] POST /requester/profile (Build requester profile after account creation)
+   [ ] GET /me                 (Fetch current user details)
+   [ ] PUT /me                 (Update profile)
+   [ ] DELETE /me              (Delete account)
+
+⬜ PHASE 5 — BLOOD REQUESTS (Planned)
+   [ ] POST /requests          (Create new blood request)
+   [ ] GET /requests           (List requests)
+   [ ] GET /requests/{id}      (Get specific request)
+   [ ] PATCH /requests         (Modify a request)
+   [ ] DELETE /requests        (Remove a request)
+
+⬜ PHASE 6 — DONOR DISCOVERY (Planned - Core Feature)
+   [ ] GET /donors/nearby      (Marketplace discovery)
+   * Pipeline Logic: Location -> Blood group match -> Availability -> Eligibility -> Distance -> Reliability Score -> Sorted list
+
+⬜ PHASE 7 — VOLUNTEER SYSTEM (Planned)
+   [ ] POST /requests/{id}/volunteer (Sign up to donate for a request)
+   [ ] PATCH /volunteer/accept       (Accept volunteer)
+   [ ] PATCH /volunteer/reject       (Reject volunteer)
+   [ ] PATCH /volunteer/completed    (Mark donation run completed)
+
+⬜ PHASE 8 — DONATION HISTORY (Planned)
+   [ ] POST /donation                (Log a donation event)
+   [ ] GET /donation/history         (View history logs)
+   [ ] Verify donation
+   [ ] Update reliability score      (Driven by historical data)
+
+⬜ PHASE 9 — ELIGIBILITY ENGINE (Planned - Business Logic)
+   [ ] Implement check_eligibility()
+   * Criteria Evaluated: Age, Weight, Last donation date, Availability, Medical restrictions
+   * Outputs: [Eligible] OR [Not Eligible]
+
+⬜ PHASE 10 — MATCHING ENGINE (Planned - Recommendation Algorithm)
+   [ ] Implement Top 20 Donors Algorithm
+   * Sorting Weights: Blood compatibility, Distance, Reliability, Availability, Donation interval, Recent activity
+
+⬜ PHASE 11 — AUTHORIZATION (Planned)
+   [ ] Implement role-based access control (RBAC) route dependencies:
+       - Depends(require_donor)
+       - Depends(require_requester)
+       - Depends(require_admin)
+
+⬜ PHASE 12 — VALIDATION (Planned)
+   [ ] Add data integrity checks: Email, Phone, Blood group, Weight, Age, Coordinates
+
+⬜ PHASE 13 — TESTING (Planned)
+   [ ] Implement pytest suite (Unit tests, Integration tests, API endpoints, Coverage reporting)
+
+⬜ PHASE 14 — DOCUMENTATION (Planned)
+   [ ] Create README, Architecture graphs, API Docs, ER Diagram, Sequence Diagram
+
+⬜ PHASE 15 — DOCKER (Planned)
+   [ ] Containerize stack: Dockerfile, docker-compose (App, Postgres, Volumes, Networking)
+
+⬜ PHASE 16 — PRODUCTION INFRASTRUCTURE & DEVOPS (Planned)
+   [ ] CI/CD Pipeline: GitHub Actions, Docker Hub
+   [ ] Deployment: AWS, Nginx reverse proxy, SSL/Domain setup
+   [ ] Observability: Monitoring & Logging (Prometheus, Grafana)
+================================================================================

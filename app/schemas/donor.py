@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import date, datetime
 from typing import Optional
 from app.models.enums import BloodGroup
@@ -33,3 +33,23 @@ class DonorProfileResponse(BaseModel):
     longitude: Optional[float] = None
     is_available: bool
     created_at: datetime
+
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+# for patch/update request schema every option become optional bcs user have the choice to update only the required fields
+class DonorProfileUpdate(BaseModel):
+    
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
+    blood_group: Optional[BloodGroup] = None
+    gender: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    weight: Optional[int] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    is_available: Optional[bool] = None
