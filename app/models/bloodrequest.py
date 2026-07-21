@@ -1,4 +1,4 @@
-from sqlalchemy import DateTime, Column, String, Integer, Enum, ForeignKey
+from sqlalchemy import DateTime, Column, String, Integer, Enum, ForeignKey, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -20,9 +20,17 @@ class BloodRequest(Base):
     hospital_address = Column(String, nullable=False)
     city = Column(String, nullable=False)
     urgency = Column(Enum(RequestUrgency, name="request_urgency"), nullable=False)
-    required_by = Column(String, nullable=False)
-    status = Column(Enum(RequestStatus, name="request_status"), nullable=False)
+    # required_by = Column(String, nullable=False)
+    required_by = Column(DateTime, nullable=False)
+    
+    # status = Column(Enum(RequestStatus, name="request_status"), nullable=False)
+    status = Column(
+        Enum(RequestStatus, name="request_status"),
+        nullable=False,
+        default=RequestStatus.ACTIVE
+    )
     created_at = Column(DateTime, server_default = func.now())
+    remarks = Column(Text, nullable=True)
 
     requester = relationship(
         "RequesterProfile",
