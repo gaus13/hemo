@@ -95,3 +95,40 @@ Current User
               Notifications (Email/SMS)
                        │
           Analytics + Admin Dashboard
+
+
+
+                 HEMO
+
+        ┌──────────────────┐
+        │      User        │
+        └──────────────────┘
+                  │
+        ┌─────────┴─────────┐
+        │                   │
+        ▼                   ▼
+ Donor Profile      Requester Profile
+        │                   │
+        │             Creates Blood Request
+        │                   │
+        ▼                   ▼
+ Volunteers          Blood Request Marketplace
+        │                   ▲
+        └──────────┬────────┘
+                   │
+            Donation Happens
+                   │
+                   ▼
+      Donor uploads hospital proof
+                   │
+                   ▼
+     Requester confirms donation
+                   │
+                   ▼
+      Donation Verified by System
+                   │
+                   ▼
+        Donation History Created
+                   │
+                   ▼
+      Reliability Score Updated          

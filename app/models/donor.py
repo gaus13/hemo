@@ -42,4 +42,10 @@ class DonorProfile(Base):
     "DonationHistory",
     back_populates="donor",
     cascade="all, delete-orphan"
-)
+    )
+    # from donation proof table
+    proofs = relationship(
+    "DonationProof",
+    back_populates="donor"
+    )
+    

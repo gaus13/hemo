@@ -41,6 +41,8 @@ PHASE 3 - USER PROFILES 🚧 (100%)
 ██████████████████████████████████████████
 PHASE 4 - BLOOD REQUESTS (0%)
 
+✅ Database model
+✅ Schema
 ⬜ Create Blood Request
 ⬜ Update Request
 ⬜ Cancel Request
@@ -83,3 +85,37 @@ PHASE 8 - PRODUCTION (0%)
 ⬜ CI/CD
 ⬜ Tests
 ⬜ Deployment
+
+
+📍Our roadmap after this
+
+We'll work in this exact order:
+
+Phase 1 — Database
+✅ Create DonationProof model
+✅ Add relationships
+✅ Alembic migration
+
+Phase 2 — Blood Requests
+Build BloodRequestCreate
+Build BloodRequestResponse
+Create blood_request_service.py
+Implement POST /blood-requests
+Enforce the "one ACTIVE request" rule
+
+Phase 3 — Marketplace
+List active blood requests
+Search and filters
+Nearby donors (using latitude/longitude)
+
+Phase 4 — Volunteer Flow
+Donor volunteers
+Requester selects donor
+Update request status to DONOR_MATCHED
+
+Phase 5 — Donation Verification
+Donor uploads proof
+Requester confirms
+Create DonationHistory
+Update reliability score
+Mark request COMPLETED

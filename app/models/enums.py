@@ -20,10 +20,18 @@ class RequestUrgency(str, enum.Enum):
 
 
 class RequestStatus(str, enum.Enum):
-    PENDING = "pending"
-    ACTIVE = "active"
-    FULFILLED = "fulfilled"
-    CANCELLED = "cancelled"
+
+    ACTIVE = "ACTIVE"
+
+    DONOR_MATCHED = "DONOR_MATCHED"
+
+    DONATION_IN_PROGRESS = "DONATION_IN_PROGRESS"
+
+    DONATION_VERIFIED = "DONATION_VERIFIED"
+
+    COMPLETED = "COMPLETED"
+
+    CANCELLED = "CANCELLED"
 
 
 class VolunteerStatus(str, enum.Enum):
@@ -31,3 +39,15 @@ class VolunteerStatus(str, enum.Enum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     COMPLETED = "completed"
+
+class RelationshipType(str, enum.Enum):
+
+    FAMILY = "family"
+
+    FRIEND = "friend"
+
+    COLLEAGUE = "colleague"
+
+    NGO = "ngo"
+
+    OTHER = "other"

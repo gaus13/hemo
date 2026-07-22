@@ -13,6 +13,7 @@ from app.models.requester import RequesterProfile
 from app.models.bloodrequest import BloodRequest
 from app.models.donorvolunteer import DonorVolunteer
 from app.models.donation_history import DonationHistory
+from app.models.donation_proofs import DonationProof
 
 
 # this is the Alembic Config object, which provides

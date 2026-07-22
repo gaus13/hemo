@@ -1,7 +1,7 @@
 # we will create this three schemas here RegisterRequest, RegisterResponse TokenResponse
 
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List, str
+from typing import Optional, List
 from datetime import datetime
 
 class RegisterRequest(BaseModel):

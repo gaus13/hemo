@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 13daa5450e19
+Revision ID: 834fbc226987
 Revises: 
-Create Date: 2026-07-09 14:46:28.184576
+Create Date: 2026-07-22 01:19:40.310427
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '13daa5450e19'
+revision: str = '834fbc226987'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -25,7 +25,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('email', sa.String(length=255), nullable=False),
     sa.Column('password_hash', sa.String(length=255), nullable=False),
-    sa.Column('is_active', sa.Boolean(), nullable=True),
+    sa.Column('is_active', sa.Boolean(), server_default=sa.text('true'), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
@@ -42,7 +42,8 @@ def upgrade() -> None:
     sa.Column('weight', sa.Integer(), nullable=False),
     sa.Column('city', sa.String(), nullable=False),
     sa.Column('state', sa.String(), nullable=False),
-    sa.Column('last_donation_date', sa.Date(), nullable=False),
+    sa.Column('latitude', sa.Float(), nullable=True),
+    sa.Column('longitude', sa.Float(), nullable=True),
     sa.Column('is_available', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
@@ -54,7 +55,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('full_name', sa.String(), nullable=False),
-    sa.Column('phone', sa.String(), nullable=False),
+    sa.Column('phone', sa.String(length=15), nullable=False),
     sa.Column('city', sa.String(), nullable=False),
     sa.Column('state', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
@@ -72,13 +73,45 @@ def upgrade() -> None:
     sa.Column('hospital_address', sa.String(), nullable=False),
     sa.Column('city', sa.String(), nullable=False),
     sa.Column('urgency', sa.Enum('LOW', 'MEDIUM', 'HIGH', 'CRITICAL', name='request_urgency'), nullable=False),
-    sa.Column('required_by', sa.String(), nullable=False),
-    sa.Column('status', sa.Enum('PENDING', 'ACTIVE', 'FULFILLED', 'CANCELLED', name='request_status'), nullable=False),
+    sa.Column('required_by', sa.DateTime(), nullable=False),
+    sa.Column('status', sa.Enum('ACTIVE', 'DONOR_MATCHED', 'DONATION_IN_PROGRESS', 'DONATION_VERIFIED', 'COMPLETED', 'CANCELLED', name='request_status'), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+    sa.Column('remarks', sa.Text(), nullable=True),
+    sa.Column('patient_name', sa.String(length=255), nullable=False),
+    sa.Column('relationship_to_patient', sa.Enum('FAMILY', 'FRIEND', 'COLLEAGUE', 'NGO', 'OTHER', name='relationship_type'), nullable=False),
+    sa.Column('matched_donor_id', sa.Integer(), nullable=True),
+    sa.ForeignKeyConstraint(['matched_donor_id'], ['donor_profiles.id'], ),
     sa.ForeignKeyConstraint(['requester_id'], ['requester_profiles.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_blood_requests_id'), 'blood_requests', ['id'], unique=False)
+    op.create_table('donation_history',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('donor_id', sa.Integer(), nullable=False),
+    sa.Column('blood_request_id', sa.Integer(), nullable=True),
+    sa.Column('hospital_name', sa.String(length=255), nullable=False),
+    sa.Column('units_donated', sa.Integer(), nullable=False),
+    sa.Column('donated_at', sa.DateTime(), nullable=False),
+    sa.Column('verified_by_hospital', sa.Boolean(), nullable=False),
+    sa.Column('verification_notes', sa.Text(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+    sa.ForeignKeyConstraint(['blood_request_id'], ['blood_requests.id'], ),
+    sa.ForeignKeyConstraint(['donor_id'], ['donor_profiles.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_donation_history_id'), 'donation_history', ['id'], unique=False)
+    op.create_table('donation_proofs',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('blood_request_id', sa.Integer(), nullable=False),
+    sa.Column('donor_id', sa.Integer(), nullable=False),
+    sa.Column('proof_file', sa.String(length=500), nullable=False),
+    sa.Column('uploaded_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('requester_confirmed', sa.Boolean(), server_default=sa.text('false'), nullable=False),
+    sa.ForeignKeyConstraint(['blood_request_id'], ['blood_requests.id'], ),
+    sa.ForeignKeyConstraint(['donor_id'], ['donor_profiles.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_donation_proofs_id'), 'donation_proofs', ['id'], unique=False)
     op.create_table('donor_volunteers',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('request_id', sa.Integer(), nullable=False),
@@ -98,6 +131,10 @@ def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
     op.drop_index(op.f('ix_donor_volunteers_id'), table_name='donor_volunteers')
     op.drop_table('donor_volunteers')
+    op.drop_index(op.f('ix_donation_proofs_id'), table_name='donation_proofs')
+    op.drop_table('donation_proofs')
+    op.drop_index(op.f('ix_donation_history_id'), table_name='donation_history')
+    op.drop_table('donation_history')
     op.drop_index(op.f('ix_blood_requests_id'), table_name='blood_requests')
     op.drop_table('blood_requests')
     op.drop_index(op.f('ix_requester_profiles_id'), table_name='requester_profiles')

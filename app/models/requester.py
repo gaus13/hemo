@@ -13,7 +13,7 @@ class RequesterProfile(Base):
         nullable=False
     )
     full_name = Column(String, nullable=False)
-    phone = Column(String, nullable=False)
+    phone = Column(String(15), nullable=False)
     city = Column(String, nullable=False)
     state = Column(String, nullable=False)
     created_at = Column(DateTime, server_default= func.now())

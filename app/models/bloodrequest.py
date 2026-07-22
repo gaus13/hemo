@@ -2,7 +2,7 @@ from sqlalchemy import DateTime, Column, String, Integer, Enum, ForeignKey, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
-from app.models.enums import BloodGroup, RequestUrgency, RequestStatus
+from app.models.enums import BloodGroup, RequestUrgency, RequestStatus, RelationshipType
 
 class BloodRequest(Base):
     __tablename__ = "blood_requests"
@@ -29,8 +29,19 @@ class BloodRequest(Base):
         nullable=False,
         default=RequestStatus.ACTIVE
     )
+
+
     created_at = Column(DateTime, server_default = func.now())
     remarks = Column(Text, nullable=True)
+    patient_name = Column(String(255), nullable=False)
+    relationship_to_patient = Column(Enum(RelationshipType, name = "relationship_type"), nullable=False)
+
+    matched_donor_id = Column(
+    Integer,
+    ForeignKey("donor_profiles.id"),
+    nullable=True
+    )
+
 
     requester = relationship(
         "RequesterProfile",
@@ -45,4 +56,11 @@ class BloodRequest(Base):
     donation_history = relationship(
     "DonationHistory",
     back_populates="blood_request"
-)
+    )
+
+# from donation proof table
+    proof = relationship(
+    "DonationProof",
+    back_populates="blood_request",
+    uselist=False
+    )
