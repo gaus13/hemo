@@ -2,6 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from app.models import User
 from app.models.donor import DonorProfile
+from app.models.requester import RequesterProfile
 from app.models.bloodrequest import BloodRequest
 from app.models.donorvolunteer import DonorVolunteer
 from app.models.enums import RequestStatus, VolunteerStatus
@@ -65,6 +66,102 @@ def volunteer_for_request(
 
     db.add(volunteer)
     db.commit()
+    db.refresh(volunteer)
+
+    return volunteer
+
+def accept_volunteer(
+        # Which volunteer did the requester click Accept on?
+        volunteer_id: int,
+        db: Session,
+        current_user: User
+):
+    
+    # Get the requester profile
+    requester = (
+        db.query(RequesterProfile)
+        .filter(RequesterProfile.user_id == current_user.id)
+        .first()
+    )
+
+    if requester is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Requester profile not found"
+        )
+
+
+    # Find the volunteer
+    volunteer = (
+    db.query(DonorVolunteer)
+    .filter(DonorVolunteer.id == volunteer_id)
+    .first()
+    )
+
+    if volunteer.status != VolunteerStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Volunteer not found"
+        )
+
+
+    # Get the blood request
+    blood_request = (
+    db.query(BloodRequest)
+    .filter(BloodRequest.id == volunteer.request_id)
+    .first()
+    )
+
+    if blood_request is None:
+        raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Blood request not found."
+    )
+
+
+    # Security Check, Does this blood request belong to the logged-in requester?
+    if blood_request.requester_id != requester.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid Request"
+        )
+
+
+    # Is the request still ACTIVE?
+    if blood_request.status != RequestStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This request is no longer accepting volunteers"
+        )
+    
+    # Accept the selected volunteer
+    volunteer.status = VolunteerStatus.ACCEPTED
+
+
+    # Reject all other volunteers for the same blood request
+    other_volunteers = (
+        db.query(DonorVolunteer)
+        .filter(
+            # "Give me only the volunteers who belong to this blood request."
+            DonorVolunteer.request_id == blood_request.id,
+            # "But don't include the volunteer I already accepted."
+            DonorVolunteer.id != volunteer.id
+        )
+        .all()
+    )
+
+    for other in other_volunteers:
+        other.status = VolunteerStatus.REJECTED
+
+
+    # Update the blood request
+    blood_request.matched_donor_id = volunteer.donor_id
+    blood_request.status = RequestStatus.DONOR_MATCHED
+
+
+    # Save all changes
+    db.commit()
+
     db.refresh(volunteer)
 
     return volunteer
