@@ -54,7 +54,7 @@ PHASE 5 - DONOR MARKETPLACE (0%)
 
 ⬜ Search Nearby Donors
 ⬜ Filter by Blood Group
-⬜ Volunteer
+⬜ Volunteer for request
 ⬜ Accept Volunteer
 ⬜ Reject Volunteer
 ⬜ Donation Completed
