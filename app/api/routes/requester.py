@@ -19,7 +19,7 @@ from app.services.requester_service import (
 
 router = APIRouter(
     prefix="/requester",
-    tags=["Requester"]
+    tags=["Requester"],
 )
 
 

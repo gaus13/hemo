@@ -19,7 +19,7 @@ from app.services.donor_service import (
 
 router = APIRouter(
     prefix="/donor",
-    tags=["Donor"]
+    tags=["Donor"],
 )
 
 
@@ -30,7 +30,7 @@ router = APIRouter(
 )
 def create_profile(
     request: DonorProfileCreate,
-    db: Session =Depends(get_db),
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     return create_donor_profile(db, current_user, request)

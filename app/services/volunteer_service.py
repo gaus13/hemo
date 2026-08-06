@@ -98,6 +98,12 @@ def accept_volunteer(
     .first()
     )
 
+    if volunteer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Volunteer not found"
+        )
+
     if volunteer.status != VolunteerStatus.PENDING:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

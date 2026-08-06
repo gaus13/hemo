@@ -44,7 +44,7 @@ def register(
     db.refresh(user)
 
     access_token = create_access_token(
-        # data={"sub": str(user.id)}
+        data={"sub": str(user.id)}
     )
 
     return AuthResponse(

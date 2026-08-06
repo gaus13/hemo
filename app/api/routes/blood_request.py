@@ -20,7 +20,7 @@ from app.services.blood_request_service import (
 
 router = APIRouter(
     prefix="/blood-request",
-    tags=["Blood Request"]
+    tags=["Blood Request"],
 )
 
 
@@ -32,7 +32,7 @@ router = APIRouter(
 def create_request(
     request: BloodRequestCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     return create_blood_request(db, current_user, request)
 
@@ -43,7 +43,7 @@ def create_request(
 )
 def get_my_requests(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     return get_my_blood_requests(db, current_user)
 
@@ -56,7 +56,7 @@ def update_request(
     request_id: int,
     request: BloodRequestUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     return update_blood_request(
         db,

@@ -43,11 +43,11 @@ PHASE 4 - BLOOD REQUESTS (0%)
 
 ✅ Database model
 ✅ Schema
-⬜ Create Blood Request
-⬜ Update Request
-⬜ Cancel Request
-⬜ View Requests
-⬜ View My Requests
+✅ Create Blood Request
+✅ Update Request
+✅ Cancel Request
+✅ View Requests
+✅ View My Requests
 
 ██████████████████████████████████████████
 PHASE 5 - DONOR MARKETPLACE (0%)
