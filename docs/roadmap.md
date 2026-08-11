@@ -119,3 +119,16 @@ Requester confirms
 Create DonationHistory
 Update reliability score
 Mark request COMPLETED
+
+
+<!-- phase after api test/ advance features -->
+Redis — caching + temporary state
+Celery — background jobs
+Redis + Celery together — real asynchronous processing
+Notification system — volunteer accepted, donation verified, etc.
+Smart donor matching — blood group + location + availability + urgency
+AI proof verification — analyze uploaded donation proof
+API hardening — rate limiting, validation, error handling
+Observability — structured logging + metrics
+Docker + production deployment
+Load/performance testing

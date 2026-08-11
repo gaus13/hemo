@@ -163,6 +163,99 @@ class BackendFlowTests(unittest.TestCase):
         self.assertEqual(updated_requests_response.status_code, 200, updated_requests_response.text)
         self.assertEqual(updated_requests_response.json()[0]["status"], "DONATION_IN_PROGRESS")
 
+    def test_only_the_requester_can_verify_donation(self):
+        requester_token = self._create_user_and_login("owner@example.com")
+        other_requester_token = self._create_user_and_login("otherowner@example.com")
+        donor_token = self._create_user_and_login("donor2@example.com")
+
+        requester_headers = {"Authorization": f"Bearer {requester_token}"}
+        other_requester_headers = {"Authorization": f"Bearer {other_requester_token}"}
+        donor_headers = {"Authorization": f"Bearer {donor_token}"}
+
+        client.post(
+            "/requester/profile",
+            headers=requester_headers,
+            json={
+                "full_name": "Owner Requester",
+                "phone": "1111111111",
+                "city": "Delhi",
+                "state": "Delhi",
+            },
+        )
+        client.post(
+            "/requester/profile",
+            headers=other_requester_headers,
+            json={
+                "full_name": "Other Requester",
+                "phone": "2222222222",
+                "city": "Delhi",
+                "state": "Delhi",
+            },
+        )
+        donor_profile_response = client.post(
+            "/donor/profile",
+            headers=donor_headers,
+            json={
+                "full_name": "Donor Two",
+                "phone": "3333333333",
+                "blood_group": "O+",
+                "gender": "female",
+                "date_of_birth": "1996-02-02",
+                "weight": 65,
+                "city": "Delhi",
+                "state": "Delhi",
+                "latitude": 28.62,
+                "longitude": 77.21,
+            },
+        )
+        self.assertEqual(donor_profile_response.status_code, 201, donor_profile_response.text)
+
+        blood_request_response = client.post(
+            "/blood-request",
+            headers=requester_headers,
+            json={
+                "blood_group": "O+",
+                "units_required": 1,
+                "hospital_name": "General Hospital",
+                "hospital_address": "456 Side St",
+                "city": "Delhi",
+                "urgency": "medium",
+                "required_by": "2026-07-24T10:00:00Z",
+                "patient_name": "Jane Doe",
+                "relationship_to_patient": "friend",
+                "remarks": "Need help",
+            },
+        )
+        self.assertEqual(blood_request_response.status_code, 201, blood_request_response.text)
+        request_id = blood_request_response.json()["id"]
+
+        volunteer_response = client.post(f"/volunteer/{request_id}", headers=donor_headers)
+        self.assertEqual(volunteer_response.status_code, 201, volunteer_response.text)
+        volunteer_id = volunteer_response.json()["id"]
+
+        accept_response = client.patch(f"/volunteer/{volunteer_id}/accept", headers=requester_headers)
+        self.assertEqual(accept_response.status_code, 200, accept_response.text)
+
+        proof_response = client.post(
+            f"/donation-proof/{request_id}",
+            headers=donor_headers,
+            json={"proof_file": "https://example.com/proof-2.jpg"},
+        )
+        self.assertEqual(proof_response.status_code, 201, proof_response.text)
+
+        unauthorized_verify = client.patch(
+            f"/donation-proof/verify/{request_id}",
+            headers=other_requester_headers,
+        )
+        self.assertEqual(unauthorized_verify.status_code, 403, unauthorized_verify.text)
+
+        verify_response = client.patch(
+            f"/donation-proof/verify/{request_id}",
+            headers=requester_headers,
+        )
+        self.assertEqual(verify_response.status_code, 200, verify_response.text)
+        self.assertEqual(verify_response.json()["status"], "DONATION_VERIFIED")
+
 
 if __name__ == "__main__":
     unittest.main()
