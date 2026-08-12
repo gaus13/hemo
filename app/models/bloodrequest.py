@@ -3,6 +3,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
 from app.models.enums import BloodGroup, RequestUrgency, RequestStatus, RelationshipType
+from geoalchemy2 import Geography
 
 class BloodRequest(Base):
     __tablename__ = "blood_requests"
@@ -12,7 +13,18 @@ class BloodRequest(Base):
     requester_id = Column(
         Integer,
         ForeignKey("requester_profiles.id"),
-        nullable=False)
+        nullable=False,
+    )
+# added the below section after geo-spatial decision
+    location = Column(
+        Geography(
+            geometry_type="POINT",
+            srid=4326,
+            dimension=2,
+            from_text="ST_GeogFromText",
+        ),
+        nullable=True,
+    )
     
     blood_group = Column(Enum(BloodGroup, name="blood_group"), nullable=False)
     units_required = Column(Integer, nullable=False)
