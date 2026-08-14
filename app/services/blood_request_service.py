@@ -1,6 +1,10 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from geoalchemy2.elements import WKTElement
+
+from app.services.blood_request_mapper import blood_request_to_response
+
 from app.models.user import User
 from app.models.requester import RequesterProfile
 from app.models.bloodrequest import BloodRequest
@@ -11,6 +15,9 @@ from app.schemas.bloodRequest import (
 )
 
 from app.models.enums import RequestStatus
+
+from app.services.blood_request_mapper import blood_request_to_response
+
 
 def create_blood_request(
     db: Session,
@@ -27,7 +34,7 @@ def create_blood_request(
     if requester is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Requester profile not found."
+            detail="Requester profile not found.",
         )
 
     active_request = (
@@ -40,7 +47,23 @@ def create_blood_request(
     if active_request:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="You already have an active blood request."
+            detail="You already have an active blood request.",
+        )
+
+    # Convert latitude + longitude into PostGIS POINT
+    location = None
+
+    if request.latitude is not None and request.longitude is not None:
+        location = WKTElement(
+            f"POINT({request.longitude} {request.latitude})",
+            srid=4326,
+        )
+
+    # Reject incomplete coordinates
+    elif request.latitude is not None or request.longitude is not None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Both latitude and longitude must be provided.",
         )
 
     blood_request = BloodRequest(
@@ -55,6 +78,7 @@ def create_blood_request(
         urgency=request.urgency,
         required_by=request.required_by,
         remarks=request.remarks,
+        location=location,
     )
 
     try:
@@ -66,7 +90,8 @@ def create_blood_request(
         db.rollback()
         raise
 
-    return blood_request
+    return blood_request_to_response(blood_request)
+
 
 def get_my_blood_requests(
     db: Session,
@@ -82,7 +107,7 @@ def get_my_blood_requests(
     if requester is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Requester profile not found."
+            detail="Requester profile not found.",
         )
 
     requests = (
@@ -92,7 +117,11 @@ def get_my_blood_requests(
         .all()
     )
 
-    return requests
+    return [
+        blood_request_to_response(blood_request)
+        for blood_request in requests
+    ]
+
 
 def update_blood_request(
     db: Session,
@@ -110,7 +139,7 @@ def update_blood_request(
     if requester is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Requester profile not found."
+            detail="Requester profile not found.",
         )
 
     blood_request = (
@@ -123,21 +152,47 @@ def update_blood_request(
     if blood_request is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Blood request not found."
+            detail="Blood request not found.",
         )
 
     if blood_request.status != RequestStatus.ACTIVE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only active requests can be updated."
+            detail="Only active requests can be updated.",
         )
 
     update_data = request.model_dump(exclude_unset=True)
 
+    # Remove coordinates from normal setattr().
+    # They need to be converted into a PostGIS POINT.
+    latitude = update_data.pop("latitude", None)
+    longitude = update_data.pop("longitude", None)
+
+    # Update normal fields
     for field, value in update_data.items():
         setattr(blood_request, field, value)
 
-    db.commit()
-    db.refresh(blood_request)
+    # Coordinates were supplied
+    if latitude is not None or longitude is not None:
 
-    return blood_request
+        # Both must be supplied together
+        if latitude is None or longitude is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Both latitude and longitude must be provided.",
+            )
+
+        blood_request.location = WKTElement(
+            f"POINT({longitude} {latitude})",
+            srid=4326,
+        )
+
+    try:
+        db.commit()
+        db.refresh(blood_request)
+
+    except Exception:
+        db.rollback()
+        raise
+
+    return blood_request_to_response(blood_request)

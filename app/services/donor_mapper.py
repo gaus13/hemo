@@ -1,5 +1,6 @@
 from app.models.donor import DonorProfile
 from app.schemas.donor import DonorProfileResponse
+from app.services.location_service import get_coordinates
 
 
 def donor_to_response(donor: DonorProfile) -> DonorProfileResponse:
@@ -7,8 +8,7 @@ def donor_to_response(donor: DonorProfile) -> DonorProfileResponse:
     longitude = None
 
     if donor.location is not None:
-        latitude = donor.location.y
-        longitude = donor.location.x
+        latitude, longitude = get_coordinates(donor.location)
 
     return DonorProfileResponse(
         id=donor.id,
