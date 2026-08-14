@@ -1,6 +1,7 @@
 from app.models.donor import DonorProfile
 from app.schemas.donor import DonorProfileResponse
 from app.services.location_service import get_coordinates
+from app.schemas.matching import DonorMatchResponse
 
 
 def donor_to_response(donor: DonorProfile) -> DonorProfileResponse:
@@ -37,3 +38,17 @@ donor_to_response()
 DonorProfileResponse
 latitude
 longitude"""
+
+def donor_match_to_response(
+        donor,
+        distance_km,       
+) -> DonorMatchResponse:
+
+    return DonorMatchResponse(
+        donor_id=donor.id,
+        full_name=donor.full_name,
+        blood_group=donor.blood_group,
+        city=donor.city,
+        state=donor.state,
+        distance_km=round(float(distance_km), 2),
+    )

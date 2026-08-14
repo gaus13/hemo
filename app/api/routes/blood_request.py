@@ -5,6 +5,11 @@ from app.database import get_db
 from app.core.deps import get_current_user
 
 from app.models.user import User
+from app.schemas.matching import DonorMatchResponse
+
+from app.services.matching_service import (
+    find_matching_donors,
+)  
 
 from app.schemas.bloodRequest import (
     BloodRequestCreate,
@@ -63,4 +68,20 @@ def update_request(
         current_user,
         request_id,
         request
+    )
+
+@router.get(
+    "/{request_id}/matches",
+    response_model=list[DonorMatchResponse],
+)
+
+def get_matching_donors(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return find_matching_donors(
+        db,
+        current_user,
+        request_id,
     )
