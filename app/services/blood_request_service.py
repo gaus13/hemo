@@ -196,3 +196,53 @@ def update_blood_request(
         raise
 
     return blood_request_to_response(blood_request)
+
+
+def complete_blood_request(
+    db: Session,
+    current_user: User,
+    request_id: int,
+):
+    requester = (
+        db.query(RequesterProfile)
+        .filter(RequesterProfile.user_id == current_user.id)
+        .first()
+    )
+
+    if requester is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Requester profile not found.",
+        )
+
+    blood_request = (
+        db.query(BloodRequest)
+        .filter(
+            BloodRequest.id == request_id,
+            BloodRequest.requester_id == requester.id,
+        )
+        .first()
+    )
+
+    if blood_request is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Blood request not found.",
+        )
+
+    if blood_request.status != RequestStatus.DONATION_VERIFIED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only verified donations can be completed.",
+        )
+
+    blood_request.status = RequestStatus.COMPLETED
+
+    try:
+        db.commit()
+        db.refresh(blood_request)
+    except Exception:
+        db.rollback()
+        raise
+
+    return blood_request

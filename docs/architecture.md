@@ -132,3 +132,37 @@ Current User
                    │
                    ▼
       Reliability Score Updated          
+
+
+
+
+
+                          ┌───────────────┐
+                    │     ACTIVE    │
+                    └───────┬───────┘
+                            │
+                     Donor accepts
+                            │
+                            ▼
+                    ┌───────────────┐
+                    │ DONOR_MATCHED │
+                    └───────┬───────┘
+                            │
+                    Donor cancels
+                            │
+                            ▼
+                    ┌───────────────┐
+                    │     ACTIVE    │◄──── Donor B
+                    └───────┬───────┘       accepts
+                            │
+                            ▼
+                    DONOR_MATCHED
+                            │
+                            ▼
+                  DONATION_IN_PROGRESS
+                            │
+                            ▼
+                   DONATION_VERIFIED
+                            │
+                            ▼
+                        COMPLETED
