@@ -22,15 +22,10 @@ class RequestUrgency(str, enum.Enum):
 class RequestStatus(str, enum.Enum):
 
     ACTIVE = "ACTIVE"
-
     DONOR_MATCHED = "DONOR_MATCHED"
-
     DONATION_IN_PROGRESS = "DONATION_IN_PROGRESS"
-
     DONATION_VERIFIED = "DONATION_VERIFIED"
-
     COMPLETED = "COMPLETED"
-
     CANCELLED = "CANCELLED"
 
 

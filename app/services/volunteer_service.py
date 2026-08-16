@@ -6,6 +6,7 @@ from app.models.requester import RequesterProfile
 from app.models.bloodrequest import BloodRequest
 from app.models.donorvolunteer import DonorVolunteer
 from app.models.enums import RequestStatus, VolunteerStatus
+from app.services.state_transition import transition_request_status
 
 def volunteer_for_request(
         request_id: int,
@@ -196,8 +197,14 @@ def accept_volunteer(
 
     # Update the blood request
     blood_request.matched_donor_id = volunteer.donor_id
-    blood_request.status = RequestStatus.DONOR_MATCHED
 
+    # while adding transition layer we removed the below code
+    # blood_request.status = RequestStatus.DONOR_MATCHED
+
+    transition_request_status(
+    blood_request,
+    RequestStatus.DONOR_MATCHED,
+)
 
     # Save all changes
     db.commit()
@@ -273,7 +280,12 @@ def cancel_volunteer(
 
     # Release the blood request so other donors can volunteer
     blood_request.matched_donor_id = None
-    blood_request.status = RequestStatus.ACTIVE
+
+    # blood_request.status = RequestStatus.ACTIVE
+    transition_request_status(
+    blood_request,
+    RequestStatus.ACTIVE,
+)
 
     try:
         db.commit()

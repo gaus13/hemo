@@ -18,7 +18,8 @@ from app.services.blood_request_service import (
     create_blood_request,
     get_my_blood_requests,
     update_blood_request,
-    complete_blood_request
+    complete_blood_request,
+    cancel_blood_request,
 )
 
 from app.services.matching_service import (
@@ -108,6 +109,22 @@ def complete_request(
     current_user: User = Depends(get_current_user),
 ):
     return complete_blood_request(
+        db,
+        current_user,
+        request_id,
+    )
+
+
+@router.patch(
+    "/{request_id}/cancel",
+    response_model=BloodRequestResponse,
+)
+def cancel_request(
+    request_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return cancel_blood_request(
         db,
         current_user,
         request_id,

@@ -12,7 +12,7 @@ from app.models.enums import (
 from app.models.donorvolunteer import DonorVolunteer
 from app.models.requester import RequesterProfile
 from app.models.donation_history import DonationHistory
-
+from app.services.state_transition import transition_request_status
 
 def upload_donation_proof(
         request_id: int,
@@ -85,8 +85,13 @@ def upload_donation_proof(
     db.add(proof)
 
     # Move request to next stage
-    blood_request.status = RequestStatus.DONATION_IN_PROGRESS
-
+    # The below code removed during state transition addition and added trans_req_status
+    # blood_request.status = RequestStatus.DONATION_IN_PROGRESS
+    transition_request_status(
+    blood_request,
+    RequestStatus.DONATION_IN_PROGRESS,
+)
+    
     db.commit()
     db.refresh(proof)
 
@@ -157,8 +162,12 @@ def verify_donation(
     proof.requester_confirmed = True
 
     # update request status
-    blood_request.status = RequestStatus.DONATION_VERIFIED
-
+    # blood_request.status = RequestStatus.DONATION_VERIFIED
+    transition_request_status(
+    blood_request,
+    RequestStatus.DONATION_VERIFIED,
+)
+    
     # Create donation history
     history = DonationHistory(
             donor_id= proof.donor_id,

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from geoalchemy2.elements import WKTElement
 
 from app.services.blood_request_mapper import blood_request_to_response
-
+from app.services.state_transition import transition_request_status
 from app.models.user import User
 from app.models.requester import RequesterProfile
 from app.models.bloodrequest import BloodRequest
@@ -198,6 +198,67 @@ def update_blood_request(
     return blood_request_to_response(blood_request)
 
 
+
+def cancel_blood_request(
+    db: Session,
+    current_user: User,
+    request_id: int,
+):
+    requester = (
+        db.query(RequesterProfile)
+        .filter(RequesterProfile.user_id == current_user.id)
+        .first()
+    )
+
+    if requester is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Requester profile not found.",
+        )
+
+    blood_request = (
+        db.query(BloodRequest)
+        .filter(
+            BloodRequest.id == request_id,
+            BloodRequest.requester_id == requester.id,
+        )
+        .first()
+    )
+
+    if blood_request is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Blood request not found.",
+        )
+
+    # A request cannot be cancelled after donation has started.
+    if blood_request.status not in (
+        RequestStatus.ACTIVE,
+        RequestStatus.DONOR_MATCHED,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This blood request can no longer be cancelled.",
+        )
+
+    # blood_request.status = RequestStatus.CANCELLED
+    transition_request_status(
+        blood_request,
+        RequestStatus.CANCELLED,
+)
+    
+    try:
+        db.commit()
+        db.refresh(blood_request)
+    except Exception:
+        db.rollback()
+        raise
+
+    return blood_request_to_response(blood_request)
+
+
+
+
 def complete_blood_request(
     db: Session,
     current_user: User,
@@ -236,13 +297,17 @@ def complete_blood_request(
             detail="Only verified donations can be completed.",
         )
 
-    blood_request.status = RequestStatus.COMPLETED
-
+    # blood_request.status = RequestStatus.COMPLETED
+    transition_request_status(
+    blood_request,
+    RequestStatus.COMPLETED,
+)
+    
     try:
         db.commit()
         db.refresh(blood_request)
     except Exception:
         db.rollback()
         raise
-
-    return blood_request
+    # Return change to this long mapper func, Otherwise /complete can return the raw location Geography object instead of the API representation your frontend expects.
+    return blood_request_to_response(blood_request)
