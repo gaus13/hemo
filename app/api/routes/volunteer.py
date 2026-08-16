@@ -8,6 +8,7 @@ from app.schemas.volunteer import VolunteerResponse
 from app.services.volunteer_service import (
     volunteer_for_request,
     accept_volunteer,
+    cancel_volunteer,
 )
 
 router = APIRouter(
@@ -47,4 +48,19 @@ def accept_request(
         volunteer_id=volunteer_id,
         db=db,
         current_user=current_user,
+    )
+
+
+@router.patch(
+    "/{volunteer_id}/cancel",
+)
+def cancel_my_volunteer(
+    volunteer_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return cancel_volunteer(
+        volunteer_id,
+        db,
+        current_user,
     )

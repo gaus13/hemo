@@ -46,6 +46,7 @@ def volunteer_for_request(
         )
     
     # Check duplicate volunteer(The same donor volunteering for the same request again.)
+    """we removed this so that a cancelled request could be fulfilled by other donor willing if first one cancels
     duplicate_volunteer = (
         db.query(DonorVolunteer)
         .filter(DonorVolunteer.request_id == request_id, DonorVolunteer.donor_id == donor.id)
@@ -56,7 +57,28 @@ def volunteer_for_request(
         raise HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail="You have already volunteered for this request."
+    )"""
+
+    existing_volunteer = (
+    db.query(DonorVolunteer)
+    .filter(
+        DonorVolunteer.request_id == request_id,
+        DonorVolunteer.donor_id == donor.id,
+        DonorVolunteer.status.in_([
+            VolunteerStatus.PENDING,
+            VolunteerStatus.ACCEPTED,
+        ])
     )
+    .first()
+)
+
+    if existing_volunteer:
+        raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="You already have an active volunteer request for this blood request."
+    )
+
+
     
     volunteer = DonorVolunteer(
         request_id=request_id,
@@ -69,6 +91,8 @@ def volunteer_for_request(
     db.refresh(volunteer)
 
     return volunteer
+
+
 
 def accept_volunteer(
         # Which volunteer did the requester click Accept on?
@@ -145,7 +169,7 @@ def accept_volunteer(
 
 
     # Reject all other volunteers for the same blood request
-    other_volunteers = (
+    """  other_volunteers = (
         db.query(DonorVolunteer)
         .filter(
             # "Give me only the volunteers who belong to this blood request."
@@ -155,6 +179,16 @@ def accept_volunteer(
         )
         .all()
     )
+""" 
+    other_volunteers = (
+    db.query(DonorVolunteer)
+    .filter(
+        DonorVolunteer.request_id == blood_request.id,
+        DonorVolunteer.id != volunteer.id,
+        DonorVolunteer.status == VolunteerStatus.PENDING,
+    )
+    .all()
+)
 
     for other in other_volunteers:
         other.status = VolunteerStatus.REJECTED
@@ -171,3 +205,87 @@ def accept_volunteer(
     db.refresh(volunteer)
 
     return volunteer
+
+
+def cancel_volunteer(
+    volunteer_id: int,
+    db: Session,
+    current_user: User,
+):
+    # Find donor profile
+    donor = (
+        db.query(DonorProfile)
+        .filter(DonorProfile.user_id == current_user.id)
+        .first()
+    )
+
+    if donor is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Donor profile not found.",
+        )
+
+    # Find volunteer record belonging to this donor
+    volunteer = (
+        db.query(DonorVolunteer)
+        .filter(
+            DonorVolunteer.id == volunteer_id,
+            DonorVolunteer.donor_id == donor.id,
+        )
+        .first()
+    )
+
+    if volunteer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Volunteer record not found.",
+        )
+
+    # Only an accepted donor can cancel a match
+    if volunteer.status != VolunteerStatus.ACCEPTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only an accepted volunteer can cancel.",
+        )
+
+    # Get the blood request
+    blood_request = (
+        db.query(BloodRequest)
+        .filter(BloodRequest.id == volunteer.request_id)
+        .first()
+    )
+
+    if blood_request is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Blood request not found.",
+        )
+
+    # Make sure this volunteer is actually the matched donor
+    if blood_request.matched_donor_id != donor.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not the matched donor for this request.",
+        )
+
+    # Cancel donor's volunteer record
+    volunteer.status = VolunteerStatus.CANCELLED
+
+    # Release the blood request so other donors can volunteer
+    blood_request.matched_donor_id = None
+    blood_request.status = RequestStatus.ACTIVE
+
+    try:
+        db.commit()
+        db.refresh(volunteer)
+        db.refresh(blood_request)
+    except Exception:
+        db.rollback()
+        raise
+
+    return {
+        "message": "Volunteer cancelled successfully.",
+        "volunteer_id": volunteer.id,
+        "request_id": blood_request.id,
+        "request_status": blood_request.status.value,
+    }
