@@ -8,6 +8,7 @@ from app.services.state_transition import transition_request_status
 from app.models.user import User
 from app.models.requester import RequesterProfile
 from app.models.bloodrequest import BloodRequest
+from app.models.donor import DonorProfile
 
 from app.schemas.bloodRequest import (
     BloodRequestCreate,
@@ -17,6 +18,7 @@ from app.schemas.bloodRequest import (
 from app.models.enums import RequestStatus
 
 from app.services.blood_request_mapper import blood_request_to_response
+from app.services.notification_events import publish_notification
 
 
 def create_blood_request(
@@ -90,6 +92,15 @@ def create_blood_request(
         db.rollback()
         raise
 
+    publish_notification(
+        current_user.id,
+        "blood_request.created",
+        "Blood request created",
+        "Your blood request has been created successfully.",
+        request_id=blood_request.id,
+        status=blood_request.status.value,
+    )
+
     return blood_request_to_response(blood_request)
 
 
@@ -117,10 +128,7 @@ def get_my_blood_requests(
         .all()
     )
 
-    return [
-        blood_request_to_response(blood_request)
-        for blood_request in requests
-    ]
+    return [blood_request_to_response(blood_request) for blood_request in requests]
 
 
 def update_blood_request(
@@ -195,8 +203,15 @@ def update_blood_request(
         db.rollback()
         raise
 
-    return blood_request_to_response(blood_request)
+    publish_notification(
+        current_user.id,
+        "blood_request.updated",
+        "Blood request updated",
+        "Your blood request details were updated.",
+        request_id=blood_request.id,
+    )
 
+    return blood_request_to_response(blood_request)
 
 
 def cancel_blood_request(
@@ -245,8 +260,8 @@ def cancel_blood_request(
     transition_request_status(
         blood_request,
         RequestStatus.CANCELLED,
-)
-    
+    )
+
     try:
         db.commit()
         db.refresh(blood_request)
@@ -254,9 +269,15 @@ def cancel_blood_request(
         db.rollback()
         raise
 
+    publish_notification(
+        current_user.id,
+        "blood_request.cancelled",
+        "Blood request cancelled",
+        "Your blood request has been cancelled.",
+        request_id=blood_request.id,
+    )
+
     return blood_request_to_response(blood_request)
-
-
 
 
 def complete_blood_request(
@@ -299,15 +320,38 @@ def complete_blood_request(
 
     # blood_request.status = RequestStatus.COMPLETED
     transition_request_status(
-    blood_request,
-    RequestStatus.COMPLETED,
-)
-    
+        blood_request,
+        RequestStatus.COMPLETED,
+    )
+
     try:
         db.commit()
         db.refresh(blood_request)
     except Exception:
         db.rollback()
         raise
+
+    if blood_request.matched_donor_id is not None:
+        donor = (
+            db.query(DonorProfile)
+            .filter(DonorProfile.id == blood_request.matched_donor_id)
+            .first()
+        )
+        if donor is not None:
+            publish_notification(
+                donor.user_id,
+                "blood_request.completed",
+                "Donation completed",
+                "The blood request you helped with is now complete.",
+                request_id=blood_request.id,
+            )
+
+    publish_notification(
+        current_user.id,
+        "blood_request.completed",
+        "Blood request completed",
+        "Your blood request has been completed.",
+        request_id=blood_request.id,
+    )
     # Return change to this long mapper func, Otherwise /complete can return the raw location Geography object instead of the API representation your frontend expects.
     return blood_request_to_response(blood_request)

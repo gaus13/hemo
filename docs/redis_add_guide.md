@@ -534,3 +534,13 @@ Retry queues
 **Next step: build a small `request lifecycle/state-transition` layer.** It will take us maybe one focused step, and then Redis will plug into it cleanly.
 
 After that, Redis becomes genuinely useful rather than just another technology added to the resume.
+
+
+
+Stage 4 → Notification database
+Stage 5 → Notification service
+Stage 6 → In-app notifications
+Stage 7 → Web push
+Stage 8 → Android push / FCM
+Stage 9 → Notification preferences
+Stage 10 → retries, failures, reliability

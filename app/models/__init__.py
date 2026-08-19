@@ -5,3 +5,4 @@ from app.models.bloodrequest import BloodRequest
 from app.models.donorvolunteer import DonorVolunteer
 from app.models.donation_history import DonationHistory
 from app.models.donation_proofs import DonationProof
+from app.models.notification import Notification
