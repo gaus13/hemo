@@ -1,8 +1,8 @@
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
-
+from  typing import Optional
 from geoalchemy2.elements import WKTElement
-
+from sqlalchemy import case
 from app.services.blood_request_mapper import blood_request_to_response
 from app.services.state_transition import transition_request_status
 from app.models.user import User
@@ -15,7 +15,11 @@ from app.schemas.bloodRequest import (
     BloodRequestUpdate,
 )
 
-from app.models.enums import RequestStatus
+from app.models.enums import(
+     RequestStatus,
+     BloodGroup,
+     RequestUrgency,
+)
 
 from app.services.blood_request_mapper import blood_request_to_response
 from app.services.notification_events import publish_notification
@@ -355,3 +359,94 @@ def complete_blood_request(
     )
     # Return change to this long mapper func, Otherwise /complete can return the raw location Geography object instead of the API representation your frontend expects.
     return blood_request_to_response(blood_request)
+
+
+def discover_blood_requests(
+    db: Session,
+    # Optional filter parameters: if the caller provides them, we filter; else none by default
+    blood_group: Optional[BloodGroup] = None,
+    city: Optional[str] = None,               
+    urgency: Optional[RequestUrgency] = None,
+    sort_by: str = "newest",
+    # Pagination parameters:
+    limit: int = 20,   # How many records to return in one page (default: 20)
+    offset: int = 0,   # How many records to skip (used to jump to page 2, 3, etc.)
+):    
+
+    query = (
+        db.query(BloodRequest)
+        .filter(
+            BloodRequest.status == RequestStatus.ACTIVE
+        )
+    )
+
+    # 2. Dynamic Filtering:
+    # Only add WHERE clauses for filters that the user actually passed in
+    
+    # If a specific blood group was requested, add it to the filter
+    if blood_group is not None:
+        query = query.filter(
+            BloodRequest.blood_group == blood_group
+        )
+
+    # If a city was provided, filter by city
+    # 'ilike' performs a case-insensitive match (e.g., 'delhi' matches 'Delhi' or 'DELHI')
+    if city is not None:
+        query = query.filter(
+            BloodRequest.city.ilike(city)
+        )
+
+    # If an urgency level was provided, filter by urgency
+    if urgency is not None:
+        query = query.filter(
+            BloodRequest.urgency == urgency
+        )
+
+    # 3. Dynamic Sorting (ORDER BY):
+    # Determine the order in which records are returned based on 'sort_by'
+    
+    # if sort_by == "urgent":
+    #     # Sort highest urgency first (.desc()), then by closest deadline (.asc())
+    #     query = query.order_by(
+    #         BloodRequest.urgency.desc(),
+    #         BloodRequest.required_by.asc(),
+    #     )
+# we replace the above logic with this more efficient one
+    if sort_by == "urgent":
+        urgency_order = case(
+        (BloodRequest.urgency == RequestUrgency.CRITICAL, 1),
+        (BloodRequest.urgency == RequestUrgency.HIGH, 2),
+        (BloodRequest.urgency == RequestUrgency.MEDIUM, 3),
+        (BloodRequest.urgency == RequestUrgency.LOW, 4),
+        else_=5,
+    )
+
+        query = query.order_by(
+        urgency_order.asc(),
+        BloodRequest.required_by.asc(),
+    )
+
+    elif sort_by == "required_by":
+        # Sort purely by which request needs blood soonest (ascending date)
+        query = query.order_by(
+            BloodRequest.required_by.asc()
+        )
+
+    else:
+        # Default fallback ("newest"): show the most recently posted requests first
+        query = query.order_by(
+            BloodRequest.created_at.desc()
+        )
+
+    # 4. Pagination & Execution:
+    # .offset(offset): Skip the first N items
+    # .limit(limit): Take only the next N items
+    # .all(): Actually executes the final SQL query in the database and returns a Python list of objects
+    return (
+        query
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    

@@ -79,3 +79,21 @@ class BloodRequestUpdate(BaseModel):
     # Geographic location
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+
+
+class BloodRequestPublicResponse(BaseModel):
+    id: int
+    blood_group: BloodGroup
+    units_required: int
+    hospital_name: str
+    hospital_address: str
+    city: str
+    urgency: RequestUrgency
+    required_by: datetime
+    patient_name: str
+    relationship_to_patient: RelationshipType
+    remarks: Optional[str] = None
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
