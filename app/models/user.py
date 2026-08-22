@@ -13,21 +13,17 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     # is_active = Column(Boolean, default=True)
     is_active = Column(
-    Boolean,
-    default=True,
-    server_default=text("true"),
-    nullable=False
+        Boolean, default=True, server_default=text("true"), nullable=False
     )
     created_at = Column(DateTime, server_default=func.now())
 
-    donor_profile = relationship(
-        "DonorProfile",
-        back_populates="user",
-        uselist=False
-    )
+    donor_profile = relationship("DonorProfile", back_populates="user", uselist=False)
 
     requester_profile = relationship(
-    "RequesterProfile",
-    back_populates="user",
-    uselist=False
+        "RequesterProfile", back_populates="user", uselist=False
+    )
+
+    chat_messages = relationship(
+        "ChatMessage",
+        back_populates="sender",
     )
