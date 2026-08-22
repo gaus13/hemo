@@ -1,4 +1,4 @@
-Updated todo list
+Updated todo list "adding chat feature"
 
 Yes, for a serious production-ready project, WebSockets are the right choice for real-time chat. But WebSockets should handle **delivery**, not be the source of truth. Messages must still be stored in PostgreSQL.
 
