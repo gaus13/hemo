@@ -1,5 +1,8 @@
 Updated todo list "adding chat feature"
 
+FastAPI WebSockets + Redis Pub/Sub if you want maximum performance and are comfortable implementing the extra logic yourself. "This is the approach i want to make in this project- see what we are using rn"
+
+
 Yes, for a serious production-ready project, WebSockets are the right choice for real-time chat. But WebSockets should handle **delivery**, not be the source of truth. Messages must still be stored in PostgreSQL.
 
 **Recommended architecture**
