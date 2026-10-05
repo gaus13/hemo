@@ -19,6 +19,7 @@ def get_authorized_chat_request(
     request_id: int,
     current_user: User,
 ) -> BloodRequest:
+    
     """Return a request only when the user is an active chat participant."""
     blood_request = db.query(BloodRequest).filter(BloodRequest.id == request_id).first()
 

@@ -8,6 +8,8 @@ from sqlalchemy.orm import sessionmaker
 from app.database import Base, get_db
 from app.main import app as fastapi_app
 import app.models  # noqa: F401  # Ensure all ORM models are registered.
+from app.models.chat_message import ChatMessage
+from app.models.user import User
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
@@ -522,6 +524,198 @@ class BackendFlowTests(unittest.TestCase):
         )
         self.assertEqual(matches_response.status_code, 404, matches_response.text)
         self.assertEqual(matches_response.json()["detail"], "Blood request not found.")
+
+    def test_chat_history_authorization_pagination_and_limits(self):
+        requester_token = self._create_user_and_login("chat-requester@example.com")
+        donor_token = self._create_user_and_login("chat-donor@example.com")
+        outsider_token = self._create_user_and_login("chat-outsider@example.com")
+
+        requester_headers = {"Authorization": f"Bearer {requester_token}"}
+        donor_headers = {"Authorization": f"Bearer {donor_token}"}
+        outsider_headers = {"Authorization": f"Bearer {outsider_token}"}
+
+        self._create_requester_profile(
+            requester_headers,
+            full_name="Chat Requester",
+        )
+
+        donor_profile = self._create_donor_profile(
+            donor_headers,
+            full_name="Chat Donor",
+            blood_group="O+",
+            is_available=True,
+        )
+
+        blood_request = self._create_blood_request(
+            requester_headers,
+            blood_group="O+",
+        )
+        request_id = blood_request["id"]
+
+        volunteer_response = client.post(
+            f"/volunteer/{request_id}",
+            headers=donor_headers,
+        )
+        self.assertEqual(
+            volunteer_response.status_code,
+            201,
+            volunteer_response.text,
+        )
+
+        volunteer_id = volunteer_response.json()["id"]
+
+        accept_response = client.patch(
+            f"/volunteer/{volunteer_id}/accept",
+            headers=requester_headers,
+        )
+        self.assertEqual(
+            accept_response.status_code,
+            200,
+            accept_response.text,
+        )
+
+        db = TestingSessionLocal()
+
+        try:
+            requester = (
+                db.query(User).filter(User.email == "chat-requester@example.com").one()
+            )
+
+            donor = db.query(User).filter(User.email == "chat-donor@example.com").one()
+
+            messages = [
+                ChatMessage(
+                    request_id=request_id,
+                    sender_user_id=requester.id,
+                    message_text="First chat message",
+                    client_message_id="chat-message-1",
+                ),
+                ChatMessage(
+                    request_id=request_id,
+                    sender_user_id=donor.id,
+                    message_text="Second chat message",
+                    client_message_id="chat-message-2",
+                ),
+                ChatMessage(
+                    request_id=request_id,
+                    sender_user_id=requester.id,
+                    message_text="Third chat message",
+                    client_message_id="chat-message-3",
+                ),
+            ]
+
+            db.add_all(messages)
+            db.commit()
+
+            for message in messages:
+                db.refresh(message)
+
+            first_message_id = messages[0].id
+            third_message_id = messages[2].id
+
+        finally:
+            db.close()
+
+        requester_response = client.get(
+            f"/chat/requests/{request_id}/messages",
+            headers=requester_headers,
+        )
+
+        self.assertEqual(
+            requester_response.status_code,
+            200,
+            requester_response.text,
+        )
+        self.assertEqual(
+            len(requester_response.json()),
+            3,
+        )
+        self.assertEqual(
+            requester_response.json()[0]["message_text"],
+            "First chat message",
+        )
+
+        donor_response = client.get(
+            f"/chat/requests/{request_id}/messages",
+            headers=donor_headers,
+        )
+
+        self.assertEqual(
+            donor_response.status_code,
+            200,
+            donor_response.text,
+        )
+        self.assertEqual(
+            len(donor_response.json()),
+            3,
+        )
+
+        outsider_response = client.get(
+            f"/chat/requests/{request_id}/messages",
+            headers=outsider_headers,
+        )
+
+        self.assertEqual(
+            outsider_response.status_code,
+            403,
+            outsider_response.text,
+        )
+
+        limited_response = client.get(
+            f"/chat/requests/{request_id}/messages?limit=1",
+            headers=requester_headers,
+        )
+
+        self.assertEqual(
+            limited_response.status_code,
+            200,
+            limited_response.text,
+        )
+        self.assertEqual(
+            len(limited_response.json()),
+            1,
+        )
+
+        paginated_response = client.get(
+            f"/chat/requests/{request_id}/messages" f"?before_id={third_message_id}",
+            headers=requester_headers,
+        )
+
+        self.assertEqual(
+            paginated_response.status_code,
+            200,
+            paginated_response.text,
+        )
+        self.assertEqual(
+            len(paginated_response.json()),
+            2,
+        )
+        self.assertEqual(
+            paginated_response.json()[0]["id"],
+            first_message_id,
+        )
+
+        invalid_limit_response = client.get(
+            f"/chat/requests/{request_id}/messages?limit=101",
+            headers=requester_headers,
+        )
+
+        self.assertEqual(
+            invalid_limit_response.status_code,
+            422,
+            invalid_limit_response.text,
+        )
+
+        invalid_before_id_response = client.get(
+            f"/chat/requests/{request_id}/messages?before_id=0",
+            headers=requester_headers,
+        )
+
+        self.assertEqual(
+            invalid_before_id_response.status_code,
+            422,
+            invalid_before_id_response.text,
+        )
 
     def test_matching_orders_nearest_to_farthest(self):
         requester_token = self._create_user_and_login("requester.ordering@test.com")

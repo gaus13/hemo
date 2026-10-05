@@ -154,3 +154,23 @@ The most important design decision is this:
 > WebSocket is the real-time transport; PostgreSQL is the source of truth; Redis distributes events between application instances.
 
 That gives you a project that demonstrates real authentication, authorization, persistence, real-time communication, horizontal scalability, and failure handling rather than just a basic chat demo.
+
+
+"wrote this on 5th oct and follow this"
+Database model              Done
+Database migration          Done
+Relationships               Done
+Authorization helper        Done
+HTTP message history        Missing
+WebSocket endpoint          Missing
+WebSocket authentication    Missing
+Connection manager          Missing
+Redis subscriber            Missing
+Message persistence flow    Missing
+Duplicate handling          Partially prepared
+Heartbeat/ping              Missing
+Reconnect strategy           Missing
+Read receipts               Missing
+Rate limiting               Missing
+Chat tests                  Missing
+Frontend WebSocket client   Missing
