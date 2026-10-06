@@ -53,3 +53,68 @@ def create_chat_ticket(
         "ticket": ticket,
         "expires_in": CHAT_TICKET_TTL_SECONDS,
     }
+
+
+def verify_and_consume_chat_ticket(
+        db: Session,
+        request_id: int,
+        ticket: str
+) -> User:
+    try:
+        ticket_data = redis_client.getdel(
+            f"chat:ticket:{ticket}"
+        )
+
+    except RedisError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Chat authentication service is unavailable"
+        )    
+
+    if ticket_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired chat ticket"
+        )
+
+    try:
+        payload = json.loads(ticket_data)
+        ticket_user_id = int(payload["user_id"])
+        ticket_request_id = int(payload["request_id"])
+
+    except(
+        KeyError,
+        TypeError,
+        ValueError,
+        json.JSONDecodeError 
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid chat ticket"
+        )  
+
+    if ticket_request_id != request_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid chat ticket"
+        )
+
+    current_user = (
+        db.query(User)
+        .filter(User.id == ticket_user_id, User.is_active.is_(True))
+        .first()
+    )
+
+    if current_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User is not active.",
+        )
+
+    get_authorized_chat_request(
+        db=db,
+        request_id=request_id,
+        current_user=current_user,
+    )
+
+    return current_user

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
@@ -8,7 +8,8 @@ from app.database import get_db
 from app.models.user import User
 from app.schemas.chat import ChatMessageResponse, ChatTicketResponse
 from app.services.chat_service import get_chat_messages
-from app.services.chat_ticket_service import create_chat_ticket
+from app.services.chat_ticket_service import create_chat_ticket, verify_and_consume_chat_ticket
+ 
 
 router = APIRouter(
     prefix="/chat",
@@ -53,3 +54,54 @@ def create_websocket_ticket(
         request_id=request_id,
         current_user=current_user,
     )
+
+@router.websocket("/requests/{request_id}")
+async def chat_websocket(
+    websocket: WebSocket,
+    request_id: int,
+    ticket: str = Query(..., min_length=20),
+    db: Session = Depends(get_db),
+):
+    try: 
+       current_user = verify_and_consume_chat_ticket(
+           db=db,
+           request_id=request_id,
+           ticket=ticket,
+       )
+    except Exception:
+        await websocket.close(
+            code=1008,
+            reason="Unauthorized chat connection"
+        )
+        return
+
+    await websocket.accept()   
+
+    await websocket.send_json(
+        {
+            "type": "connected",
+            "request_id": request_id,
+            "user_id": current_user.id
+        }
+    )
+
+    try:
+        while True:
+            await websocket.receive_text()
+
+    except WebSocketDisconnect:
+        return
+
+"""
+What this endpoint currently does: 
+Receive ticket
+  -> Verify ticket
+  -> Consume ticket
+  -> Validate user
+  -> Validate request
+  -> Validate chat authorization
+  -> Accept WebSocket
+  -> Send connected event
+  This is the secure connection stage. It does not send chat messages yet.
+  Message persistence and broadcasting come next with the connection manager.
+"""

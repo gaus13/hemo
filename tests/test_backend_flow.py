@@ -4,7 +4,9 @@ import unittest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from starlette.websockets import WebSocketDisconnect
 
+from app.core.redis_client import redis_client
 from app.database import Base, get_db
 from app.main import app as fastapi_app
 import app.models  # noqa: F401  # Ensure all ORM models are registered.
@@ -715,6 +717,111 @@ class BackendFlowTests(unittest.TestCase):
             invalid_before_id_response.status_code,
             422,
             invalid_before_id_response.text,
+        )
+
+    def test_chat_ticket_is_authorized_expires_and_is_single_use(self):
+        requester_token = self._create_user_and_login("ticket-requester@example.com")
+        donor_token = self._create_user_and_login("ticket-donor@example.com")
+        outsider_token = self._create_user_and_login("ticket-outsider@example.com")
+
+        requester_headers = {"Authorization": f"Bearer {requester_token}"}
+        donor_headers = {"Authorization": f"Bearer {donor_token}"}
+        outsider_headers = {"Authorization": f"Bearer {outsider_token}"}
+
+        self._create_requester_profile(
+            requester_headers,
+            full_name="Ticket Requester",
+        )
+        self._create_donor_profile(
+            donor_headers,
+            full_name="Ticket Donor",
+            blood_group="O+",
+            is_available=True,
+        )
+
+        blood_request = self._create_blood_request(
+            requester_headers,
+            blood_group="O+",
+        )
+        request_id = blood_request["id"]
+
+        volunteer_response = client.post(
+            f"/volunteer/{request_id}",
+            headers=donor_headers,
+        )
+        self.assertEqual(
+            volunteer_response.status_code,
+            201,
+            volunteer_response.text,
+        )
+
+        volunteer_id = volunteer_response.json()["id"]
+
+        accept_response = client.patch(
+            f"/volunteer/{volunteer_id}/accept",
+            headers=requester_headers,
+        )
+        self.assertEqual(
+            accept_response.status_code,
+            200,
+            accept_response.text,
+        )
+
+        outsider_response = client.post(
+            f"/chat/requests/{request_id}/ticket",
+            headers=outsider_headers,
+        )
+        self.assertEqual(
+            outsider_response.status_code,
+            403,
+            outsider_response.text,
+        )
+
+        ticket_response = client.post(
+            f"/chat/requests/{request_id}/ticket",
+            headers=requester_headers,
+        )
+        self.assertEqual(
+            ticket_response.status_code,
+            200,
+            ticket_response.text,
+        )
+
+        ticket = ticket_response.json()["ticket"]
+        self.assertEqual(
+            ticket_response.json()["expires_in"],
+            120,
+        )
+
+        redis_key = f"chat:ticket:{ticket}"
+        self.assertGreater(
+            redis_client.ttl(redis_key),
+            0,
+        )
+
+        with client.websocket_connect(
+            f"/chat/requests/{request_id}?ticket={ticket}"
+        ) as websocket:
+            connected_event = websocket.receive_json()
+
+        self.assertEqual(
+            connected_event["type"],
+            "connected",
+        )
+        self.assertEqual(
+            connected_event["request_id"],
+            request_id,
+        )
+
+        with self.assertRaises(WebSocketDisconnect) as error:
+            with client.websocket_connect(
+                f"/chat/requests/{request_id}?ticket={ticket}"
+            ):
+                pass
+
+        self.assertEqual(
+            error.exception.code,
+            1008,
         )
 
     def test_matching_orders_nearest_to_farthest(self):
