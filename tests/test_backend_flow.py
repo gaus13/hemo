@@ -879,5 +879,96 @@ class BackendFlowTests(unittest.TestCase):
         self.assertLess(matches[1]["distance_km"], matches[2]["distance_km"])
 
 
+    def test_two_chat_users_can_exchange_messages(self):
+        requester_token = self._create_user_and_login(
+            "exchange-requester@example.com"
+        )
+        donor_token = self._create_user_and_login(
+            "exchange-donor@example.com"
+        )
+
+        requester_headers = {
+            "Authorization": f"Bearer {requester_token}"
+        }
+        donor_headers = {
+            "Authorization": f"Bearer {donor_token}"
+        }
+
+        self._create_requester_profile(
+            requester_headers,
+            full_name="Exchange Requester",
+        )
+        self._create_donor_profile(
+            donor_headers,
+            full_name="Exchange Donor",
+            blood_group="O+",
+            is_available=True,
+        )
+
+        blood_request = self._create_blood_request(
+            requester_headers,
+            blood_group="O+",
+        )
+        request_id = blood_request["id"]
+
+        volunteer_response = client.post(
+            f"/volunteer/{request_id}",
+            headers=donor_headers,
+        )
+        self.assertEqual(volunteer_response.status_code, 201)
+
+        volunteer_id = volunteer_response.json()["id"]
+
+        accept_response = client.patch(
+            f"/volunteer/{volunteer_id}/accept",
+            headers=requester_headers,
+        )
+        self.assertEqual(accept_response.status_code, 200)
+
+        requester_ticket = client.post(
+            f"/chat/requests/{request_id}/ticket",
+            headers=requester_headers,
+        ).json()["ticket"]
+
+        donor_ticket = client.post(
+            f"/chat/requests/{request_id}/ticket",
+            headers=donor_headers,
+        ).json()["ticket"]
+
+        with client.websocket_connect(
+            f"/chat/requests/{request_id}?ticket={requester_ticket}"
+        ) as requester_socket:
+            requester_socket.receive_json()
+
+            with client.websocket_connect(
+                f"/chat/requests/{request_id}?ticket={donor_ticket}"
+            ) as donor_socket:
+                donor_socket.receive_json()
+
+                requester_socket.send_json(
+                    {
+                        "client_message_id": "exchange-message-1",
+                        "message_text": "I can donate tomorrow.",
+                    }
+                )
+
+                requester_event = requester_socket.receive_json()
+                donor_event = donor_socket.receive_json()
+
+                self.assertEqual(
+                    requester_event["type"],
+                    "message",
+                )
+                self.assertEqual(
+                    donor_event["type"],
+                    "message",
+                )
+                self.assertEqual(
+                    donor_event["message"]["message_text"],
+                    "I can donate tomorrow.",
+                )
+
 if __name__ == "__main__":
     unittest.main()
+
+

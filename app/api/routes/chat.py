@@ -1,15 +1,16 @@
 from typing import Optional
-
+from pydantic import ValidationError
 from fastapi import APIRouter, Depends, Path, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
+from fastapi.exceptions import WebSocketRequestValidationError
 
 from app.core.deps import get_current_user
 from app.database import get_db
 from app.models.user import User
-from app.schemas.chat import ChatMessageResponse, ChatTicketResponse
-from app.services.chat_service import get_chat_messages
+from app.schemas.chat import ChatMessageResponse, ChatTicketResponse, ChatMessageCreate
+from app.services.chat_service import get_chat_messages, create_chat_message
 from app.services.chat_ticket_service import create_chat_ticket, verify_and_consume_chat_ticket
- 
+from app.services.chat_connection_manager import chat_manager 
 
 router = APIRouter(
     prefix="/chat",
@@ -74,23 +75,66 @@ async def chat_websocket(
             reason="Unauthorized chat connection"
         )
         return
-
-    await websocket.accept()   
-
-    await websocket.send_json(
-        {
-            "type": "connected",
-            "request_id": request_id,
-            "user_id": current_user.id
-        }
+# added after creation of chat manager
+    await chat_manager.connect(
+        request_id=request_id,
+        user_id=current_user.id,
+        wabsocket=websocket
     )
 
     try:
+        await websocket.send_json(
+            {
+                "type": "connected",
+                "request_id": request_id,
+                "user_id": current_user.id
+            }
+        )
+
         while True:
-            await websocket.receive_text()
+            raw_message = await websocket.receive_json()
+
+            try: 
+                message_data = ChatMessageCreate.model_validate(
+                    raw_message
+                )
+            except ValidationError:
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "detail": "Invalid chat message",
+                    }
+                )   
+                continue
+
+            saved_message = create_chat_message(
+                db=db,
+                request_id=request_id,
+                current_user=current_user,
+                message_data=message_data,
+            )
+
+            message_payload = ChatMessageResponse.model_validate(
+                saved_message
+            ).model_dump(mode="json")
+
+            await chat_manager.broadcast(
+                request_id=request_id,
+                message={
+                    "type": "message",
+                    "message": message_payload,
+                },
+            )
 
     except WebSocketDisconnect:
-        return
+        pass
+
+    finally:
+        chat_manager.disconnect(
+            request_id=request_id,
+            user_id=current_user.id,
+            websocket=websocket,
+        )    
 
 """
 What this endpoint currently does: 
