@@ -10,7 +10,9 @@ from app.models.user import User
 from app.schemas.chat import ChatMessageResponse, ChatTicketResponse, ChatMessageCreate
 from app.services.chat_service import get_chat_messages, create_chat_message
 from app.services.chat_ticket_service import create_chat_ticket, verify_and_consume_chat_ticket
-from app.services.chat_connection_manager import chat_manager 
+from app.services.chat_connection_manager import chat_manager
+from app.services.chat_pubsub import publish_chat_event
+
 
 router = APIRouter(
     prefix="/chat",
@@ -56,6 +58,7 @@ def create_websocket_ticket(
         current_user=current_user,
     )
 
+
 @router.websocket("/requests/{request_id}")
 async def chat_websocket(
     websocket: WebSocket,
@@ -79,7 +82,7 @@ async def chat_websocket(
     await chat_manager.connect(
         request_id=request_id,
         user_id=current_user.id,
-        wabsocket=websocket
+        websocket=websocket
     )
 
     try:
@@ -118,12 +121,15 @@ async def chat_websocket(
                 saved_message
             ).model_dump(mode="json")
 
-            await chat_manager.broadcast(
+# below await part added after pubsub application, earlier it was chat_manager.broadcast()
+
+            await publish_chat_event(
                 request_id=request_id,
-                message={
+                event={
                     "type": "message",
+                    "request_id": request_id,
                     "message": message_payload,
-                },
+                }
             )
 
     except WebSocketDisconnect:

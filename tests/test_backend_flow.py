@@ -37,11 +37,12 @@ client = TestClient(fastapi_app)
 class BackendFlowTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        client.__enter__()
         Base.metadata.create_all(bind=engine)
 
     @classmethod
     def tearDownClass(cls):
-        client.close()
+        client.__exit__(None, None, None)
         fastapi_app.dependency_overrides.clear()
         engine.dispose()
 
