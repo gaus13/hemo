@@ -1,4 +1,5 @@
 from typing import Optional
+import asyncio
 from pydantic import ValidationError
 from fastapi import APIRouter, Depends, Path, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
@@ -12,6 +13,10 @@ from app.services.chat_service import get_chat_messages, create_chat_message
 from app.services.chat_ticket_service import create_chat_ticket, verify_and_consume_chat_ticket
 from app.services.chat_connection_manager import chat_manager
 from app.services.chat_pubsub import publish_chat_event
+from app.services.chat_reliability import(
+    HEARTBEAT_TIMEOUT_SECONDS,
+    send_heartbeat,
+)
 
 
 router = APIRouter(
@@ -27,6 +32,7 @@ def read_chat_messages(
     request_id: int = Path(..., gt=0, description="Blood request ID"),
     limit: int = Query(50, ge=1, le=100, description="Number of messages to return"),
     before_id: Optional[int] = Query(None, gt=0, description="Return messages older than this message ID"),
+    after_id: Optional[int] = Query(None, gt=0, description="Return messages newer than this message ID"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -36,6 +42,7 @@ def read_chat_messages(
         current_user=current_user,
         limit=limit,
         before_id=before_id,
+        after_id=after_id
     )
 
 
@@ -85,6 +92,11 @@ async def chat_websocket(
         websocket=websocket
     )
 
+    # checks health
+    heartbeat_task = asyncio.create_task(
+        send_heartbeat(websocket)
+    )
+
     try:
         await websocket.send_json(
             {
@@ -95,9 +107,31 @@ async def chat_websocket(
         )
 
         while True:
-            raw_message = await websocket.receive_json()
+            try:
+                raw_message = await asyncio.wait_for(
+                    websocket.receive_json(),
+                    timeout=HEARTBEAT_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                await websocket.close(
+                    code=1001,
+                    reason="Heartbeat timeout.",
+                )
+                break
 
-            try: 
+            if not isinstance(raw_message, dict):
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "detail": "Message must be a JSON object.",
+                    }
+                )
+                continue
+
+            if raw_message.get("type") == "pong":
+                continue
+
+            try:
                 message_data = ChatMessageCreate.model_validate(
                     raw_message
                 )
@@ -105,9 +139,9 @@ async def chat_websocket(
                 await websocket.send_json(
                     {
                         "type": "error",
-                        "detail": "Invalid chat message",
+                        "detail": "Invalid chat message.",
                     }
-                )   
+                )
                 continue
 
             saved_message = create_chat_message(
@@ -122,25 +156,33 @@ async def chat_websocket(
             ).model_dump(mode="json")
 
 # below await part added after pubsub application, earlier it was chat_manager.broadcast()
-
             await publish_chat_event(
                 request_id=request_id,
                 event={
                     "type": "message",
                     "request_id": request_id,
                     "message": message_payload,
-                }
+                },
             )
 
+
+            
     except WebSocketDisconnect:
         pass
 
     finally:
+        heartbeat_task.cancel()
+
+        await asyncio.gather(
+            heartbeat_task,
+            return_exceptions=True,
+        )
+
         chat_manager.disconnect(
             request_id=request_id,
             user_id=current_user.id,
             websocket=websocket,
-        )    
+        )
 
 """
 What this endpoint currently does: 
@@ -154,4 +196,12 @@ Receive ticket
   -> Send connected event
   This is the secure connection stage. It does not send chat messages yet.
   Message persistence and broadcasting come next with the connection manager.
+"""
+
+""" {These are the changes made later in improvement}
+Heartbeat task starts when the socket connects
+Pong messages are ignored as chat messages
+No message for 60 seconds closes the connection
+Heartbeat task is cancelled on disconnect
+Socket is removed from the manager
 """

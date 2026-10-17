@@ -34,12 +34,15 @@ async def publish_chat_event(
     return True
 
 
-async def run_chat_pubsub_listener() -> None:
+async def run_chat_pubsub_listener(
+    ready_event: asyncio.Event,
+) -> None:
     while True:
         pubsub = redis_async_client.pubsub()
 
         try:
             await pubsub.psubscribe(CHAT_CHANNEL_PATTERN)
+            ready_event.set()
 
             while True:
                 message = await pubsub.get_message(

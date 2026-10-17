@@ -2,16 +2,16 @@ import os
 import unittest
 
 from fastapi.testclient import TestClient
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from starlette.websockets import WebSocketDisconnect
-
 from app.core.redis_client import redis_client
 from app.database import Base, get_db
 from app.main import app as fastapi_app
 import app.models  # noqa: F401  # Ensure all ORM models are registered.
 from app.models.chat_message import ChatMessage
 from app.models.user import User
+from app.services.chat_ticket_service import verify_and_consume_chat_ticket
 
 TEST_DATABASE_URL = os.environ.get(
     "TEST_DATABASE_URL",
@@ -800,30 +800,36 @@ class BackendFlowTests(unittest.TestCase):
             0,
         )
 
-        with client.websocket_connect(
-            f"/chat/requests/{request_id}?ticket={ticket}"
-        ) as websocket:
-            connected_event = websocket.receive_json()
+        db = TestingSessionLocal()
+
+        try:
+            authenticated_user = verify_and_consume_chat_ticket(
+                db=db,
+                request_id=request_id,
+                ticket=ticket,
+            )
+        finally:
+            db.close()
 
         self.assertEqual(
-            connected_event["type"],
-            "connected",
+            authenticated_user.email,
+            "ticket-requester@example.com",
         )
-        self.assertEqual(
-            connected_event["request_id"],
-            request_id,
-        )
+        self.assertIsNone(redis_client.get(redis_key))
 
-        with self.assertRaises(WebSocketDisconnect) as error:
-            with client.websocket_connect(
-                f"/chat/requests/{request_id}?ticket={ticket}"
-            ):
-                pass
+        db = TestingSessionLocal()
 
-        self.assertEqual(
-            error.exception.code,
-            1008,
-        )
+        try:
+            with self.assertRaises(HTTPException) as error:
+                verify_and_consume_chat_ticket(
+                    db=db,
+                    request_id=request_id,
+                    ticket=ticket,
+                )
+        finally:
+            db.close()
+
+        self.assertEqual(error.exception.status_code, 401)
 
     def test_matching_orders_nearest_to_farthest(self):
         requester_token = self._create_user_and_login("requester.ordering@test.com")
@@ -879,21 +885,12 @@ class BackendFlowTests(unittest.TestCase):
         self.assertLess(matches[0]["distance_km"], matches[1]["distance_km"])
         self.assertLess(matches[1]["distance_km"], matches[2]["distance_km"])
 
-
     def test_two_chat_users_can_exchange_messages(self):
-        requester_token = self._create_user_and_login(
-            "exchange-requester@example.com"
-        )
-        donor_token = self._create_user_and_login(
-            "exchange-donor@example.com"
-        )
+        requester_token = self._create_user_and_login("exchange-requester@example.com")
+        donor_token = self._create_user_and_login("exchange-donor@example.com")
 
-        requester_headers = {
-            "Authorization": f"Bearer {requester_token}"
-        }
-        donor_headers = {
-            "Authorization": f"Bearer {donor_token}"
-        }
+        requester_headers = {"Authorization": f"Bearer {requester_token}"}
+        donor_headers = {"Authorization": f"Bearer {donor_token}"}
 
         self._create_requester_profile(
             requester_headers,
@@ -969,7 +966,6 @@ class BackendFlowTests(unittest.TestCase):
                     "I can donate tomorrow.",
                 )
 
+
 if __name__ == "__main__":
     unittest.main()
-
-
